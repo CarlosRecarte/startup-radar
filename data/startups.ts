@@ -1,3 +1,6 @@
+// NOTA: El Dashboard y las rutas que se integren con Supabase ya no usan estos
+// datos estáticos. Se mantienen como referencia y para páginas en transición
+// (Discover, Pipeline) hasta completar su migración a Supabase.
 import { Startup } from '@/types';
 
 export const startups: Startup[] = [

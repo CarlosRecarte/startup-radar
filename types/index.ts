@@ -22,9 +22,9 @@ export interface Startup {
   radarScore: number;
   revenue: string;
   description: string;
-  country: string;
-  founded: number;
-  employees: number;
+  country?: string;    // derivado de location en BD
+  founded?: number;    // no disponible en BD actual
+  employees?: number;  // no disponible en BD actual
   pipelineStage: PipelineStage;
   tags: string[];
   website?: string;
