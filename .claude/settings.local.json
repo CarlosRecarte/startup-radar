@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(npm install:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m 'Initial commit: Startup Radar — Next.js + TypeScript + Tailwind:*)",
+      "Bash(git config:*)"
+    ]
+  }
+}
