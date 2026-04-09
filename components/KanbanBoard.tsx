@@ -10,9 +10,22 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   useDroppable,
+  type CollisionDetection,
 } from '@dnd-kit/core';
+
+// Detección de colisiones en dos pasos (patrón oficial dnd-kit para
+// múltiples contenedores): primero comprueba si el puntero está dentro
+// de algún droppable — esto detecta columnas vacías que closestCorners
+// ignora porque no tienen ítems sortables como referencia de esquinas.
+// Si no hay colisión con el puntero, cae a rectIntersection.
+const multiContainerCollision: CollisionDetection = (args) => {
+  const pointerHits = pointerWithin(args);
+  if (pointerHits.length > 0) return pointerHits;
+  return rectIntersection(args);
+};
 import {
   SortableContext,
   useSortable,
@@ -277,7 +290,7 @@ export default function KanbanBoard({ initialStartups }: KanbanBoardProps) {
       <DndContext
         id="kanban-dnd"
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={multiContainerCollision}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
