@@ -106,19 +106,52 @@ export async function getStartupsByPhase(phase: PipelineStage): Promise<Startup[
 
 // ─── Funciones de escritura ───────────────────────────────────────────────────
 
-/** Mueve una startup a otra fase en pipeline_status */
+/** Mueve una startup a otra fase actualizando su fila en pipeline_status */
 export async function updateStartupPhase(
   startupId: string,
   newPhase: PipelineStage,
-  notes?: string
 ): Promise<void> {
-  const { error } = await supabase.from('pipeline_status').insert({
-    startup_id: startupId,
-    phase: PIPELINE_TO_DB[newPhase],
-    notes: notes ?? null,
-  });
+  console.log('[updateStartupPhase] startupId:', startupId, '→', newPhase);
 
-  if (error) throw new Error(`Error al actualizar fase: ${error.message}`);
+  // Busca la entrada más reciente de esta startup
+  const { data: entries, error: fetchError } = await supabase
+    .from('pipeline_status')
+    .select('id')
+    .eq('startup_id', startupId)
+    .order('entered_at', { ascending: false })
+    .limit(1);
+
+  if (fetchError) {
+    console.error('[updateStartupPhase] fetch error:', fetchError);
+    throw new Error(`Error al buscar pipeline: ${fetchError.message}`);
+  }
+
+  if (!entries || entries.length === 0) {
+    // No existe entrada — la crea (caso borde)
+    console.warn('[updateStartupPhase] no pipeline entry found, inserting...');
+    const { error: insertError } = await supabase.from('pipeline_status').insert({
+      startup_id: startupId,
+      phase: PIPELINE_TO_DB[newPhase],
+    });
+    if (insertError) {
+      console.error('[updateStartupPhase] insert error:', insertError);
+      throw new Error(`Error al crear fase: ${insertError.message}`);
+    }
+    return;
+  }
+
+  // Actualiza la fila existente
+  const { error: updateError } = await supabase
+    .from('pipeline_status')
+    .update({ phase: PIPELINE_TO_DB[newPhase] })
+    .eq('id', entries[0].id);
+
+  if (updateError) {
+    console.error('[updateStartupPhase] update error:', updateError);
+    throw new Error(`Error al actualizar fase: ${updateError.message}`);
+  }
+
+  console.log('[updateStartupPhase] success');
 }
 
 /** Añade una nueva startup y la coloca en Discovery por defecto */

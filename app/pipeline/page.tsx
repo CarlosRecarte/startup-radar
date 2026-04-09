@@ -1,6 +1,9 @@
 import { getStartups } from '@/lib/api/startups';
 import KanbanBoard from '@/components/KanbanBoard';
 
+// Fuerza render dinámico para que los datos siempre vengan frescos de Supabase
+export const dynamic = 'force-dynamic';
+
 export default async function PipelinePage() {
   // Lanza error si Supabase falla → lo captura app/pipeline/error.tsx
   const startups = await getStartups();

@@ -2,6 +2,9 @@ import { getStartups } from '@/lib/api/startups';
 import StartupCard from '@/components/StartupCard';
 import RadarScoreRing from '@/components/RadarScoreRing';
 
+// Fuerza render dinámico para que los datos siempre vengan frescos de Supabase
+export const dynamic = 'force-dynamic';
+
 const PIPELINE_STAGES = [
   'Discovery', 'Screening', 'Deep Dive', 'Outreach',
   'Due Diligence', 'Comité IC', 'Portfolio',

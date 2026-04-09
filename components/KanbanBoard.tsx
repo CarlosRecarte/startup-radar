@@ -11,6 +11,7 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -90,6 +91,10 @@ function KanbanColumn({
   startups: Startup[];
   onCardClick: (startup: Startup) => void;
 }) {
+  // Registra la columna como droppable con el nombre de la fase como ID.
+  // Esto permite soltar sobre columnas vacías (sin tarjetas sortables).
+  const { setNodeRef, isOver } = useDroppable({ id: stage });
+
   return (
     <div
       className={`flex flex-col min-w-[220px] w-[220px] bg-zinc-900/50 rounded-xl border ${columnColors[stage]}`}
@@ -102,8 +107,13 @@ function KanbanColumn({
         <span className="text-xs font-bold ml-2 opacity-80">{startups.length}</span>
       </div>
 
-      {/* Tarjetas */}
-      <div className="flex-1 p-2 space-y-2 min-h-[120px]">
+      {/* Tarjetas — ref registra el área como droppable */}
+      <div
+        ref={setNodeRef}
+        className={`flex-1 p-2 space-y-2 min-h-[120px] rounded-b-xl transition-colors ${
+          isOver ? 'bg-violet-950/30' : ''
+        }`}
+      >
         <SortableContext
           items={startups.map((s) => s.id)}
           strategy={verticalListSortingStrategy}
@@ -113,8 +123,12 @@ function KanbanColumn({
           ))}
         </SortableContext>
         {startups.length === 0 && (
-          <div className="h-20 border-2 border-dashed border-zinc-800 rounded-lg flex items-center justify-center">
-            <span className="text-xs text-zinc-600">Drop here</span>
+          <div className={`h-20 border-2 border-dashed rounded-lg flex items-center justify-center transition-colors ${
+            isOver ? 'border-violet-600/60 bg-violet-900/20' : 'border-zinc-800'
+          }`}>
+            <span className={`text-xs transition-colors ${isOver ? 'text-violet-400' : 'text-zinc-600'}`}>
+              Suelta aquí
+            </span>
           </div>
         )}
       </div>
