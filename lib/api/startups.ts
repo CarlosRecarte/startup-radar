@@ -64,6 +64,7 @@ function mapRowToStartup(
     tags: row.tags ?? [],
     website: row.website ?? undefined,
     growth: row.growth_rate != null ? `+${row.growth_rate}% YoY` : undefined,
+    notes: latestPhase?.notes ?? undefined,
   };
 }
 

@@ -29,4 +29,5 @@ export interface Startup {
   tags: string[];
   website?: string;
   growth?: string;
+  notes?: string;
 }

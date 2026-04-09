@@ -1,7 +1,10 @@
-import { startups } from '@/data/startups';
+import { getStartups } from '@/lib/api/startups';
 import KanbanBoard from '@/components/KanbanBoard';
 
-export default function PipelinePage() {
+export default async function PipelinePage() {
+  // Lanza error si Supabase falla → lo captura app/pipeline/error.tsx
+  const startups = await getStartups();
+
   return (
     <div className="p-6 h-full">
       {/* Header */}
@@ -12,9 +15,9 @@ export default function PipelinePage() {
         </p>
       </div>
 
-      {/* Legend */}
+      {/* Leyenda */}
       <div className="flex items-center gap-4 mb-5 flex-wrap">
-        <span className="text-xs text-zinc-500">Arrastra las tarjetas para mover startups entre etapas</span>
+        <span className="text-xs text-zinc-500">Arrastra las tarjetas para mover startups entre etapas · Haz clic para ver detalles y añadir notas</span>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
           <span className="text-xs text-zinc-400">Score ≥80</span>
