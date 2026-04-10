@@ -66,10 +66,16 @@ export default function AIAnalysis({ startup }: AIAnalysisProps) {
         body: JSON.stringify(startup),
       });
 
-      const data = await res.json();
+      // Vercel puede devolver HTML (502/504) si la función agota tiempo o falla en frío
+      let data: { error?: string } & Partial<AnalysisResult>;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Error HTTP ${res.status} — respuesta no válida del servidor. Inténtalo de nuevo.`);
+      }
 
       if (!res.ok) {
-        throw new Error(data.error ?? 'Error al analizar la startup');
+        throw new Error(data.error ?? `Error HTTP ${res.status}`);
       }
 
       setAnalysis(data as AnalysisResult);

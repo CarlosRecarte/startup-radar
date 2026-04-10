@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Startup } from '@/types';
 
+// Vercel: permite hasta 60 s a esta función serverless (plan Pro/hobby soporta hasta 60 s)
+export const maxDuration = 60;
+
+// claude-sonnet-4-6 es el modelo Sonnet más reciente disponible (abril 2026)
+const MODEL = 'claude-sonnet-4-6';
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 function buildPrompt(s: Startup): string {
@@ -60,6 +66,27 @@ Responde ÚNICAMENTE con un objeto JSON válido (sin markdown, sin texto adicion
 El campo "veredicto" debe ser exactamente uno de: "INVERTIR", "OBSERVAR" o "DESCARTAR".`;
 }
 
+/** Convierte un error del SDK de Anthropic en un mensaje legible para el usuario */
+function toUserMessage(err: unknown): string {
+  const e = err as { status?: number; message?: string; error?: { type?: string } };
+  const status  = e.status;
+  const message = e.message ?? String(err);
+
+  if (status === 401) return `API key inválida o no autorizada (401). Verifica ANTHROPIC_API_KEY en Vercel.`;
+  if (status === 403) return `Acceso denegado a la API de IA (403). Verifica permisos de la API key.`;
+  if (status === 429) return `Rate limit alcanzado (429). Espera unos segundos e inténtalo de nuevo.`;
+  if (status === 529) return `API de Anthropic sobrecargada (529). Inténtalo en unos minutos.`;
+  if (status === 500) return `Error interno de la API de Anthropic (500). Inténtalo de nuevo.`;
+  if (status != null) return `Error de la API de IA (${status}): ${message}`;
+
+  if (message.toLowerCase().includes('timeout') || message.includes('ETIMEDOUT'))
+    return `Timeout: la IA tardó demasiado en responder. Inténtalo de nuevo.`;
+  if (message.toLowerCase().includes('econnrefused') || message.toLowerCase().includes('fetch failed'))
+    return `No se pudo conectar a la API de IA. Comprueba la conectividad.`;
+
+  return `Error inesperado: ${message}`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const startup: Startup = await req.json();
@@ -68,34 +95,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Datos de startup inválidos.' }, { status: 400 });
     }
 
+    console.log(`[analyze] Iniciando análisis de "${startup.name}" con modelo ${MODEL}`);
+
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: MODEL,
       max_tokens: 1000,
       system:
         'Eres un analista experto de venture capital con 20 años de experiencia. Analizas startups de forma rigurosa, cuantitativa y directa. Respondes siempre en español.',
       messages: [{ role: 'user', content: buildPrompt(startup) }],
     });
 
+    console.log(`[analyze] Respuesta recibida — stop_reason: ${message.stop_reason}, tokens: ${message.usage?.output_tokens}`);
+
     const raw = message.content[0].type === 'text' ? message.content[0].text : '';
 
-    // Elimina posibles fences de markdown por si el modelo los incluye
-    const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    const analysis = JSON.parse(jsonText);
+    // Elimina fences de markdown por si el modelo los incluye
+    const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    let analysis: unknown;
+    try {
+      analysis = JSON.parse(jsonText);
+    } catch (parseErr) {
+      console.error('[analyze] JSON parse fallido. Raw de la IA:', raw);
+      console.error('[analyze] Parse error:', parseErr);
+      return NextResponse.json(
+        { error: 'La IA devolvió una respuesta que no se pudo procesar. Inténtalo de nuevo.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(analysis);
+
   } catch (err) {
-    console.error('[POST /api/analyze]', err);
+    const e = err as { status?: number; message?: string; error?: { type?: string }; stack?: string };
 
-    const msg = err instanceof Error ? err.message : '';
-    const isAuth = msg.includes('401') || msg.toLowerCase().includes('authentication');
+    console.error('[analyze] Error llamando a Anthropic:', {
+      status:    e.status,
+      errorType: e.error?.type,
+      message:   e.message,
+      stack:     e.stack,
+    });
 
-    return NextResponse.json(
-      {
-        error: isAuth
-          ? 'Error de autenticación con la API de IA. Verifica la ANTHROPIC_API_KEY.'
-          : 'No se pudo generar el análisis. Inténtalo de nuevo.',
-      },
-      { status: 500 }
-    );
+    const userMessage = toUserMessage(err);
+    return NextResponse.json({ error: userMessage }, { status: e.status ?? 500 });
   }
 }
