@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { getFilteredStartups, updateStartupPhase } from '@/lib/api/startups';
 import RadarScoreRing from '@/components/RadarScoreRing';
+import RadarScoreBreakdown from '@/components/RadarScoreBreakdown';
 import type { Startup, StartupStage } from '@/types';
 
 // ─── Constantes de estilo ─────────────────────────────────────────────────────
@@ -158,7 +159,7 @@ function StartupDiscoverCard({ startup, onClick }: { startup: Startup; onClick: 
             {startup.sector}
           </span>
         </div>
-        <RadarScoreRing score={startup.radarScore} size={52} strokeWidth={4} showLabel={false} />
+        <RadarScoreRing score={startup.radarScore} size={40} />
       </div>
 
       {/* Descripción */}
@@ -209,7 +210,7 @@ function StartupListRow({ startup, onClick }: { startup: Startup; onClick: () =>
       onClick={onClick}
       className="group flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 cursor-pointer transition-all duration-200 hover:border-zinc-600 hover:bg-zinc-800/60"
     >
-      <RadarScoreRing score={startup.radarScore} size={44} strokeWidth={4} showLabel={false} />
+      <RadarScoreRing score={startup.radarScore} size={40} />
       <div className="flex-1 min-w-0">
         <h3 className="font-bold text-white text-sm truncate group-hover:text-violet-300 transition-colors">
           {startup.name}
@@ -254,14 +255,6 @@ function SlideOverContent({
 
   const ss = sectorStyle(startup.sector);
   const sc = STAGE_COLORS[startup.stage] ?? 'bg-zinc-700/60 text-zinc-300 border-zinc-600/40';
-
-  const dimensions = [
-    { label: 'Velocidad de Crecimiento', weight: 30, value: startup.growthRate != null ? Math.min(100, startup.growthRate) : null },
-    { label: 'Calidad del Equipo',       weight: 25, value: startup.teamScore ?? null },
-    { label: 'Timing de Mercado',        weight: 20, value: startup.marketScore ?? null },
-    { label: 'Tracción y Validación',    weight: 15, value: startup.tractionScore ?? null },
-    { label: 'Eficiencia de Capital',    weight: 10, value: startup.capitalScore ?? null },
-  ];
 
   const handleAdd = async () => {
     setAdding(true);
@@ -355,31 +348,21 @@ function SlideOverContent({
 
         {/* Radar Score con dimensiones */}
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Radar Score</h3>
-            <RadarScoreRing score={startup.radarScore} size={48} strokeWidth={4} showLabel={false} />
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-4">Radar Score</h3>
+          <div className="flex items-center gap-5 mb-5">
+            <RadarScoreRing score={startup.radarScore} size={80} />
+            <div>
+              <p className="text-3xl font-bold text-white leading-none">{startup.radarScore}</p>
+              <p className="text-xs text-zinc-500 mt-1">de 100 puntos</p>
+            </div>
           </div>
-          <div className="space-y-3">
-            {dimensions.map((dim) => (
-              <div key={dim.label}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-zinc-400">{dim.label}</span>
-                  <div className="flex items-center gap-2">
-                    {dim.value != null && (
-                      <span className="text-xs text-white font-mono">{Math.round(dim.value)}</span>
-                    )}
-                    <span className="text-[10px] text-zinc-600">{dim.weight}%</span>
-                  </div>
-                </div>
-                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-violet-600 to-indigo-500 rounded-full transition-all duration-700"
-                    style={{ width: `${dim.value ?? 0}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          <RadarScoreBreakdown
+            growthScore={startup.growthRate != null ? Math.min(100, startup.growthRate) : undefined}
+            teamScore={startup.teamScore}
+            marketScore={startup.marketScore}
+            tractionScore={startup.tractionScore}
+            capitalScore={startup.capitalScore}
+          />
         </div>
 
         {/* Tags */}

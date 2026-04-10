@@ -85,7 +85,7 @@ export default async function DashboardPage() {
             {topStartups.map((startup, i) => (
               <div key={startup.id} className="flex items-center gap-3">
                 <span className="text-xs text-zinc-600 w-4 text-center font-mono">{i + 1}</span>
-                <RadarScoreRing score={startup.radarScore} size={40} strokeWidth={3.5} />
+                <RadarScoreRing score={startup.radarScore} size={40} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{startup.name}</p>
                   <p className="text-xs text-zinc-500 truncate">{startup.sector} · {startup.stage}</p>

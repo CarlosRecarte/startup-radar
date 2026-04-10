@@ -41,7 +41,7 @@ export default function StartupCard({ startup, compact = false }: StartupCardPro
           </h3>
           <span className={`text-xs font-medium ${sectorColor}`}>{startup.sector}</span>
         </div>
-        <RadarScoreRing score={startup.radarScore} size={52} strokeWidth={4} />
+        <RadarScoreRing score={startup.radarScore} size={compact ? 32 : 40} />
       </div>
 
       {/* Description */}

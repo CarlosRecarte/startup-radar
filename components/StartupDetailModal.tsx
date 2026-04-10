@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Startup } from '@/types';
 import RadarScoreRing from './RadarScoreRing';
+import RadarScoreBreakdown from './RadarScoreBreakdown';
 
 interface Props {
   startup: Startup;
@@ -39,15 +40,6 @@ export default function StartupDetailModal({ startup, onClose, onSaveNotes }: Pr
     setTimeout(() => setSaved(false), 2000);
   }
 
-  const scoreColor =
-    startup.radarScore >= 80
-      ? 'text-emerald-400'
-      : startup.radarScore >= 60
-      ? 'text-blue-400'
-      : startup.radarScore >= 40
-      ? 'text-amber-400'
-      : 'text-red-400';
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
@@ -57,13 +49,13 @@ export default function StartupDetailModal({ startup, onClose, onSaveNotes }: Pr
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-zinc-800">
           <div className="flex items-center gap-4">
-            <RadarScoreRing score={startup.radarScore} size={56} strokeWidth={4} />
+            <RadarScoreRing score={startup.radarScore} size={56} />
             <div>
               <h2 className="text-lg font-bold text-white">{startup.name}</h2>
               <p className="text-sm text-zinc-400">
                 {startup.sector}
                 <span className="mx-1.5 text-zinc-700">·</span>
-                <span className={scoreColor}>{startup.radarScore} pts</span>
+                {startup.stage}
               </p>
             </div>
           </div>
@@ -103,6 +95,20 @@ export default function StartupDetailModal({ startup, onClose, onSaveNotes }: Pr
           {/* Description */}
           {startup.description && (
             <p className="text-sm text-zinc-400 leading-relaxed">{startup.description}</p>
+          )}
+
+          {/* Radar Score breakdown */}
+          {(startup.teamScore != null || startup.marketScore != null || startup.tractionScore != null || startup.capitalScore != null) && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500 mb-3">Radar Score</p>
+              <RadarScoreBreakdown
+                growthScore={startup.growthRate != null ? Math.min(100, startup.growthRate) : undefined}
+                teamScore={startup.teamScore}
+                marketScore={startup.marketScore}
+                tractionScore={startup.tractionScore}
+                capitalScore={startup.capitalScore}
+              />
+            </div>
           )}
 
           {/* Tags */}
