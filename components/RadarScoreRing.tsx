@@ -4,23 +4,29 @@ interface RadarScoreRingProps {
   score: number;
   size?: number;
   strokeWidth?: number;
+  showLabel?: boolean;
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return '#22c55e'; // green-500
-  if (score >= 60) return '#3b82f6'; // blue-500
-  if (score >= 40) return '#f59e0b'; // amber-500
-  return '#ef4444'; // red-500
+  if (score >= 90) return '#10B981'; // emerald-500
+  if (score >= 80) return '#F59E0B'; // amber-500
+  if (score >= 70) return '#F97316'; // orange-500
+  return '#EF4444';                  // red-500
 }
 
 function getScoreLabel(score: number): string {
-  if (score >= 80) return 'Alto';
-  if (score >= 60) return 'Medio';
-  if (score >= 40) return 'Bajo';
-  return 'Crítico';
+  if (score >= 90) return 'Alto';
+  if (score >= 80) return 'Bueno';
+  if (score >= 70) return 'Medio';
+  return 'Bajo';
 }
 
-export default function RadarScoreRing({ score, size = 64, strokeWidth = 5 }: RadarScoreRingProps) {
+export default function RadarScoreRing({
+  score,
+  size = 64,
+  strokeWidth = 5,
+  showLabel = true,
+}: RadarScoreRingProps) {
   const radius = (size - strokeWidth * 2) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
@@ -57,7 +63,9 @@ export default function RadarScoreRing({ score, size = 64, strokeWidth = 5 }: Ra
           <span className="text-sm font-bold text-white">{score}</span>
         </div>
       </div>
-      <span className="text-[10px] font-medium" style={{ color }}>{getScoreLabel(score)}</span>
+      {showLabel && (
+        <span className="text-[10px] font-medium" style={{ color }}>{getScoreLabel(score)}</span>
+      )}
     </div>
   );
 }
