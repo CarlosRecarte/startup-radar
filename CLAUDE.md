@@ -74,10 +74,17 @@ startup-radar/
 
 Definidas en `data/startups.ts` como `PIPELINE_STAGES`.
 
-## Base de datos (Supabase — pendiente)
-- Credenciales en `.env.local`: `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- Cuando se integre, usar cliente desde `/lib/supabase.ts`
-- Actualmente los datos viven en `data/startups.ts` (estáticos)
+## Variables de entorno (.env.local)
+
+### Supabase (base de datos)
+- `NEXT_PUBLIC_SUPABASE_URL` — URL del proyecto Supabase (expuesta al navegador)
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — clave anon pública de Supabase (expuesta al navegador)
+- Cliente disponible en `/lib/supabase.ts`
+
+### Anthropic (IA)
+- `ANTHROPIC_API_KEY` — clave de la API de Claude. **Solo servidor** — NO usar prefijo `NEXT_PUBLIC_`, nunca exponer al navegador
+- Usar exclusivamente en Route Handlers (`app/api/`) o Server Actions
+- Ejemplo de uso: `const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })`
 
 ## Reglas importantes
 - NUNCA poner credenciales en el código, siempre `.env.local`
