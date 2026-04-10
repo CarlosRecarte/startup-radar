@@ -60,11 +60,20 @@ function mapRowToStartup(
     revenue: row.revenue ?? '—',
     description: row.description ?? '',
     country,
+    location: location || undefined,
     pipelineStage,
     tags: row.tags ?? [],
     website: row.website ?? undefined,
     growth: row.growth_rate != null ? `+${row.growth_rate}% YoY` : undefined,
     notes: latestPhase?.notes ?? undefined,
+    teamScore: row.team_score ?? undefined,
+    marketScore: row.market_score ?? undefined,
+    tractionScore: row.traction_score ?? undefined,
+    capitalScore: row.capital_score ?? undefined,
+    growthRate: row.growth_rate ?? undefined,
+    funding: row.funding ?? undefined,
+    founders: row.founders ?? undefined,
+    createdAt: row.created_at,
   };
 }
 
@@ -214,6 +223,68 @@ export async function addStartup(data: {
   const startup = await getStartupById(inserted.id);
   if (!startup) throw new Error('No se pudo recuperar la startup recién creada');
   return startup;
+}
+
+// ─── Consultas con filtros ────────────────────────────────────────────────────
+
+export type FilterOptions = {
+  search?: string;
+  sectors?: string[];
+  stages?: string[];
+  minScore?: number;
+  sortBy?: 'radarScore' | 'growth' | 'funding' | 'newest';
+};
+
+/** Obtiene startups aplicando filtros en Supabase + búsqueda textual en cliente */
+export async function getFilteredStartups(filters: FilterOptions = {}): Promise<Startup[]> {
+  let query = supabase
+    .from('startups')
+    .select('*, pipeline_status(phase, notes, entered_at)');
+
+  if (filters.sectors?.length) {
+    query = query.in('sector', filters.sectors);
+  }
+  if (filters.stages?.length) {
+    query = query.in('stage', filters.stages);
+  }
+  if (filters.minScore && filters.minScore > 0) {
+    query = query.gte('radar_score', filters.minScore);
+  }
+
+  switch (filters.sortBy) {
+    case 'growth':
+      query = query.order('growth_rate', { ascending: false });
+      break;
+    case 'funding':
+      query = query.order('funding', { ascending: false });
+      break;
+    case 'newest':
+      query = query.order('created_at', { ascending: false });
+      break;
+    default:
+      query = query.order('radar_score', { ascending: false });
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(`Error al filtrar startups: ${error.message}`);
+
+  let result = (data ?? []).map((row) =>
+    mapRowToStartup(row as StartupRow & { pipeline_status: PipelineStatusEntry[] })
+  );
+
+  if (filters.search) {
+    const q = filters.search.toLowerCase();
+    result = result.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q) ||
+        s.sector.toLowerCase().includes(q) ||
+        s.tags.some((t) => t.toLowerCase().includes(q)) ||
+        (s.location ?? '').toLowerCase().includes(q)
+    );
+  }
+
+  return result;
 }
 
 /** Actualiza las notas de una startup en su entrada de pipeline más reciente */

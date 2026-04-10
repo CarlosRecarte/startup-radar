@@ -22,12 +22,22 @@ export interface Startup {
   radarScore: number;
   revenue: string;
   description: string;
-  country?: string;    // derivado de location en BD
-  founded?: number;    // no disponible en BD actual
-  employees?: number;  // no disponible en BD actual
+  country?: string;      // derivado de location en BD
+  location?: string;     // ubicación completa "Ciudad, País"
+  founded?: number;      // no disponible en BD actual
+  employees?: number;    // no disponible en BD actual
   pipelineStage: PipelineStage;
   tags: string[];
   website?: string;
-  growth?: string;
+  growth?: string;       // formateado, ej: "+150% YoY"
   notes?: string;
+  // Dimensiones del Radar Score
+  teamScore?: number;
+  marketScore?: number;
+  tractionScore?: number;
+  capitalScore?: number;
+  growthRate?: number;   // numérico, ej: 150 para 150%
+  funding?: number;      // en dólares
+  founders?: string;
+  createdAt?: string;
 }
