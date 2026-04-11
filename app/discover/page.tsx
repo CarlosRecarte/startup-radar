@@ -444,6 +444,10 @@ export default function DiscoverPage() {
   const [sortBy, setSortBy]               = useState<SortOption>('radarScore');
   const [viewMode, setViewMode]           = useState<ViewMode>('grid');
 
+  // Scraper HN
+  const [scraping, setScraping]           = useState(false);
+  const [scrapeToast, setScrapeToast]     = useState<{ type: 'success' | 'info'; msg: string } | null>(null);
+
   // Sectores derivados de los datos cargados
   const availableSectors = useMemo(
     () => Array.from(new Set(allStartups.map((s) => s.sector))).sort(),
@@ -509,6 +513,41 @@ export default function DiscoverPage() {
 
   const handleAddToPipeline = async (startup: Startup) => {
     await updateStartupPhase(startup.id, 'Discovery');
+  };
+
+  const runHNScraper = async () => {
+    setScraping(true);
+    setScrapeToast(null);
+    try {
+      const res = await fetch('/api/scrapers/hackernews', { method: 'POST' });
+      const data = await res.json() as {
+        processed?: number;
+        startups_found?: number;
+        new_startups?: number;
+        errors?: string[];
+        error?: string;
+      };
+
+      if (!res.ok || data.error) {
+        setScrapeToast({ type: 'info', msg: data.error ?? `Error ${res.status}` });
+        return;
+      }
+
+      const n = data.new_startups ?? 0;
+      if (n > 0) {
+        setScrapeToast({ type: 'success', msg: `${n} nueva${n > 1 ? 's' : ''} startup${n > 1 ? 's' : ''} añadida${n > 1 ? 's' : ''} desde HN` });
+        // Recargar lista
+        const fresh = await getFilteredStartups({});
+        setAllStartups(fresh);
+      } else {
+        setScrapeToast({ type: 'info', msg: `Sin novedades — ${data.startups_found ?? 0} startups analizadas, ninguna es nueva` });
+      }
+    } catch (e) {
+      setScrapeToast({ type: 'info', msg: e instanceof Error ? e.message : 'Error inesperado' });
+    } finally {
+      setScraping(false);
+      setTimeout(() => setScrapeToast(null), 6000);
+    }
   };
 
   return (
@@ -622,6 +661,31 @@ export default function DiscoverPage() {
         )}
       </div>
 
+      {/* Toast del scraper */}
+      {scrapeToast && (
+        <div className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-all ${
+          scrapeToast.type === 'success'
+            ? 'bg-emerald-950/40 border-emerald-700/50 text-emerald-300'
+            : 'bg-amber-950/40 border-amber-700/50 text-amber-300'
+        }`}>
+          {scrapeToast.type === 'success' ? (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          <span>{scrapeToast.msg}</span>
+          <button onClick={() => setScrapeToast(null)} className="ml-auto text-current opacity-60 hover:opacity-100 transition-opacity">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Contador + ordenación + toggle vista */}
       <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
         <p className="text-sm text-zinc-400">
@@ -638,6 +702,23 @@ export default function DiscoverPage() {
             <option value="funding">Funding</option>
             <option value="newest">Más recientes</option>
           </select>
+
+          {/* Scraper HN */}
+          <button
+            onClick={runHNScraper}
+            disabled={scraping}
+            className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 hover:border-violet-600 rounded-lg px-3 py-1.5 text-sm text-zinc-300 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+            title="Buscar nuevas startups en Hacker News"
+          >
+            {scraping ? (
+              <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+            ) : (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            )}
+            {scraping ? 'Buscando...' : 'Buscar en HN'}
+          </button>
 
           {/* Toggle grid/lista */}
           <div className="flex bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden">
