@@ -40,4 +40,6 @@ export interface Startup {
   funding?: number;      // en dólares
   founders?: string;
   createdAt?: string;
+  source?: string;      // 'manual' | 'hackernews' | 'producthunt' | 'github' | etc.
+  sourceUrl?: string;   // enlace original (ej: post de HN)
 }

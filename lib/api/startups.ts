@@ -74,6 +74,8 @@ function mapRowToStartup(
     funding: row.funding ?? undefined,
     founders: row.founders ?? undefined,
     createdAt: row.created_at,
+    source: row.source ?? undefined,
+    sourceUrl: row.source_url ?? undefined,
   };
 }
 
@@ -181,6 +183,8 @@ export async function addStartup(data: {
   radar_score?: number;
   founders?: string;
   website?: string;
+  source?: string;
+  source_url?: string;
   initialPhase?: PipelineStage;
 }): Promise<Startup> {
   const { initialPhase = 'Discovery', ...startupData } = data;
@@ -203,6 +207,8 @@ export async function addStartup(data: {
     radar_score: startupData.radar_score ?? null,
     founders: startupData.founders ?? null,
     website: startupData.website ?? null,
+    source: startupData.source ?? 'manual',
+    source_url: startupData.source_url ?? null,
   };
 
   const { data: inserted, error: insertError } = await supabase
@@ -232,6 +238,7 @@ export type FilterOptions = {
   sectors?: string[];
   stages?: string[];
   minScore?: number;
+  sources?: string[];
   sortBy?: 'radarScore' | 'growth' | 'funding' | 'newest';
 };
 
@@ -249,6 +256,9 @@ export async function getFilteredStartups(filters: FilterOptions = {}): Promise<
   }
   if (filters.minScore && filters.minScore > 0) {
     query = query.gte('radar_score', filters.minScore);
+  }
+  if (filters.sources?.length) {
+    query = query.in('source', filters.sources);
   }
 
   switch (filters.sortBy) {

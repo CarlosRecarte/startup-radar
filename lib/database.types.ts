@@ -22,6 +22,8 @@ export interface Database {
           founders: string | null;
           website: string | null;
           tags: string[];
+          source: string | null;
+          source_url: string | null;
           created_at: string;
           updated_at: string;
         };

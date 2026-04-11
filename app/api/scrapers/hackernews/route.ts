@@ -209,6 +209,8 @@ export async function POST() {
         traction_score: tractionScore,
         capital_score: capitalScore,
         radar_score:   radarScore,
+        source:        'hackernews',
+        source_url:    `https://news.ycombinator.com/item?id=${item.id}`,
         initialPhase:  'Discovery',
       });
 

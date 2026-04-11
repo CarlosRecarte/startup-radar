@@ -48,6 +48,54 @@ function sectorStyle(sector: string) {
   return SECTOR_COLORS[sector] ?? { text: 'text-zinc-300', bg: 'bg-zinc-700/30', border: 'border-zinc-600/40' };
 }
 
+// ─── SourceBadge ──────────────────────────────────────────────────────────────
+
+function SourceBadge({ source, sourceUrl }: { source?: string; sourceUrl?: string }) {
+  if (!source || source === 'manual') {
+    return (
+      <span
+        title="Añadida manualmente"
+        className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700 shrink-0"
+      >
+        Manual
+      </span>
+    );
+  }
+
+  if (source === 'hackernews') {
+    const badge = (
+      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-orange-950/60 text-orange-400 border border-orange-800/50 shrink-0 font-medium">
+        {/* Icono HN */}
+        <svg className="w-2.5 h-2.5 fill-current shrink-0" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect width="16" height="16" rx="2" className="fill-orange-500" />
+          <text x="4" y="12" fontSize="10" fontWeight="bold" fill="white" fontFamily="Arial,sans-serif">Y</text>
+        </svg>
+        HN
+      </span>
+    );
+    if (sourceUrl) {
+      return (
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Ver post en Hacker News"
+        >
+          {badge}
+        </a>
+      );
+    }
+    return badge;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
+      {source}
+    </span>
+  );
+}
+
 // ─── MultiSelectDropdown ──────────────────────────────────────────────────────
 
 function MultiSelectDropdown({
@@ -184,7 +232,7 @@ function StartupDiscoverCard({ startup, onClick }: { startup: Startup; onClick: 
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1 flex-wrap">
           {startup.tags.slice(0, 2).map((tag) => (
             <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 border border-zinc-700">
@@ -192,9 +240,12 @@ function StartupDiscoverCard({ startup, onClick }: { startup: Startup; onClick: 
             </span>
           ))}
         </div>
-        {startup.country && (
-          <span className="text-[10px] text-zinc-500">{startup.country}</span>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {startup.country && (
+            <span className="text-[10px] text-zinc-500">{startup.country}</span>
+          )}
+          <SourceBadge source={startup.source} sourceUrl={startup.sourceUrl} />
+        </div>
       </div>
     </div>
   );
@@ -235,6 +286,7 @@ function StartupListRow({ startup, onClick }: { startup: Startup; onClick: () =>
       {startup.country && (
         <span className="hidden xl:block text-xs text-zinc-500 whitespace-nowrap">{startup.country}</span>
       )}
+      <SourceBadge source={startup.source} sourceUrl={startup.sourceUrl} />
     </div>
   );
 }
@@ -440,6 +492,7 @@ export default function DiscoverPage() {
   const [search, setSearch]               = useState('');
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [selectedStages, setSelectedStages]   = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [minScore, setMinScore]           = useState(0);
   const [sortBy, setSortBy]               = useState<SortOption>('radarScore');
   const [viewMode, setViewMode]           = useState<ViewMode>('grid');
@@ -487,6 +540,7 @@ export default function DiscoverPage() {
     }
     if (selectedSectors.length > 0) r = r.filter((s) => selectedSectors.includes(s.sector));
     if (selectedStages.length > 0)  r = r.filter((s) => selectedStages.includes(s.stage));
+    if (selectedSources.length > 0) r = r.filter((s) => selectedSources.includes(s.source ?? 'manual'));
     if (minScore > 0)               r = r.filter((s) => s.radarScore >= minScore);
 
     r.sort((a, b) => {
@@ -500,14 +554,15 @@ export default function DiscoverPage() {
     });
 
     return r;
-  }, [allStartups, search, selectedSectors, selectedStages, minScore, sortBy]);
+  }, [allStartups, search, selectedSectors, selectedStages, selectedSources, minScore, sortBy]);
 
-  const hasFilters = search || selectedSectors.length > 0 || selectedStages.length > 0 || minScore > 0;
+  const hasFilters = search || selectedSectors.length > 0 || selectedStages.length > 0 || selectedSources.length > 0 || minScore > 0;
 
   const clearFilters = () => {
     setSearch('');
     setSelectedSectors([]);
     setSelectedStages([]);
+    setSelectedSources([]);
     setMinScore(0);
   };
 
@@ -600,6 +655,12 @@ export default function DiscoverPage() {
             onChange={setSelectedStages}
             placeholder="Stage"
           />
+          <MultiSelectDropdown
+            options={['manual', 'hackernews']}
+            selected={selectedSources}
+            onChange={setSelectedSources}
+            placeholder="Origen"
+          />
 
           {/* Score mínimo */}
           <div className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2">
@@ -649,6 +710,12 @@ export default function DiscoverPage() {
               <span key={s} className="flex items-center gap-1 text-xs bg-zinc-800 text-zinc-300 border border-zinc-700 px-2 py-0.5 rounded-full">
                 {s}
                 <button onClick={() => setSelectedStages((prev) => prev.filter((v) => v !== s))} className="hover:text-white leading-none">×</button>
+              </span>
+            ))}
+            {selectedSources.map((s) => (
+              <span key={s} className="flex items-center gap-1 text-xs bg-orange-900/30 text-orange-300 border border-orange-700/40 px-2 py-0.5 rounded-full">
+                {s === 'hackernews' ? 'Hacker News' : s}
+                <button onClick={() => setSelectedSources((prev) => prev.filter((v) => v !== s))} className="hover:text-white leading-none">×</button>
               </span>
             ))}
             {minScore > 0 && (
