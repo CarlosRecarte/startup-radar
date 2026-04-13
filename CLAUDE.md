@@ -86,6 +86,18 @@ Definidas en `data/startups.ts` como `PIPELINE_STAGES`.
 - Usar exclusivamente en Route Handlers (`app/api/`) o Server Actions
 - Ejemplo de uso: `const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })`
 
+### Product Hunt (scraper)
+- `PRODUCTHUNT_TOKEN` — Developer token de la API v2 de Product Hunt (OAuth2 Bearer). **Solo servidor** — NO usar prefijo `NEXT_PUBLIC_`, nunca exponer al navegador
+- Usar exclusivamente en Route Handlers (`app/api/scrapers/producthunt/`)
+- Ejemplo de uso: `Authorization: Bearer ${process.env.PRODUCTHUNT_TOKEN}`
+- API GraphQL endpoint: `https://api.producthunt.com/v2/api/graphql`
+
+### GitHub (scraper)
+- `GITHUB_TOKEN` — Personal Access Token de GitHub (formato `github_pat_...`). **Solo servidor** — NO usar prefijo `NEXT_PUBLIC_`, nunca exponer al navegador
+- Usar exclusivamente en Route Handlers (`app/api/scrapers/github/`)
+- Ejemplo de uso: `Authorization: Bearer ${process.env.GITHUB_TOKEN}`
+- API REST endpoint: `https://api.github.com`
+
 ## Reglas importantes
 - NUNCA poner credenciales en el código, siempre `.env.local`
 - NUNCA borrar datos de la base de datos sin confirmación explícita

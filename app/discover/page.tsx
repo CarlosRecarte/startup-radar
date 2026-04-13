@@ -89,6 +89,32 @@ function SourceBadge({ source, sourceUrl }: { source?: string; sourceUrl?: strin
     return badge;
   }
 
+  if (source === 'github') {
+    const badge = (
+      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-200 border border-zinc-600 shrink-0 font-medium">
+        {/* Icono GitHub */}
+        <svg className="w-2.5 h-2.5 fill-current shrink-0" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+        </svg>
+        GitHub
+      </span>
+    );
+    if (sourceUrl) {
+      return (
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Ver repositorio en GitHub"
+        >
+          {badge}
+        </a>
+      );
+    }
+    return badge;
+  }
+
   return (
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700 shrink-0">
       {source}
@@ -497,9 +523,11 @@ export default function DiscoverPage() {
   const [sortBy, setSortBy]               = useState<SortOption>('radarScore');
   const [viewMode, setViewMode]           = useState<ViewMode>('grid');
 
-  // Scraper HN
-  const [scraping, setScraping]           = useState(false);
-  const [scrapeToast, setScrapeToast]     = useState<{ type: 'success' | 'info'; msg: string } | null>(null);
+  // Scrapers
+  const [scrapingSource, setScrapingSource]   = useState<'hn' | 'github' | null>(null);
+  const [scrapeToast, setScrapeToast]         = useState<{ type: 'success' | 'info'; msg: string } | null>(null);
+  const [scraperMenuOpen, setScraperMenuOpen] = useState(false);
+  const scraperMenuRef = useRef<HTMLDivElement>(null);
 
   // Sectores derivados de los datos cargados
   const availableSectors = useMemo(
@@ -570,11 +598,25 @@ export default function DiscoverPage() {
     await updateStartupPhase(startup.id, 'Discovery');
   };
 
-  const runHNScraper = async () => {
-    setScraping(true);
+  // Cierra el menú de scrapers al hacer clic fuera
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (scraperMenuRef.current && !scraperMenuRef.current.contains(e.target as Node)) {
+        setScraperMenuOpen(false);
+      }
+    }
+    if (scraperMenuOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [scraperMenuOpen]);
+
+  const runScraper = async (source: 'hn' | 'github') => {
+    setScrapingSource(source);
+    setScraperMenuOpen(false);
     setScrapeToast(null);
+    const endpoint   = source === 'hn' ? '/api/scrapers/hackernews' : '/api/scrapers/github';
+    const sourceName = source === 'hn' ? 'HN' : 'GitHub Trending';
     try {
-      const res = await fetch('/api/scrapers/hackernews', { method: 'POST' });
+      const res = await fetch(endpoint, { method: 'POST' });
       const data = await res.json() as {
         processed?: number;
         startups_found?: number;
@@ -590,8 +632,7 @@ export default function DiscoverPage() {
 
       const n = data.new_startups ?? 0;
       if (n > 0) {
-        setScrapeToast({ type: 'success', msg: `${n} nueva${n > 1 ? 's' : ''} startup${n > 1 ? 's' : ''} añadida${n > 1 ? 's' : ''} desde HN` });
-        // Recargar lista
+        setScrapeToast({ type: 'success', msg: `${n} nueva${n > 1 ? 's' : ''} startup${n > 1 ? 's' : ''} añadida${n > 1 ? 's' : ''} desde ${sourceName}` });
         const fresh = await getFilteredStartups({});
         setAllStartups(fresh);
       } else {
@@ -600,7 +641,7 @@ export default function DiscoverPage() {
     } catch (e) {
       setScrapeToast({ type: 'info', msg: e instanceof Error ? e.message : 'Error inesperado' });
     } finally {
-      setScraping(false);
+      setScrapingSource(null);
       setTimeout(() => setScrapeToast(null), 6000);
     }
   };
@@ -656,7 +697,7 @@ export default function DiscoverPage() {
             placeholder="Stage"
           />
           <MultiSelectDropdown
-            options={['manual', 'hackernews']}
+            options={['manual', 'hackernews', 'github']}
             selected={selectedSources}
             onChange={setSelectedSources}
             placeholder="Origen"
@@ -714,7 +755,7 @@ export default function DiscoverPage() {
             ))}
             {selectedSources.map((s) => (
               <span key={s} className="flex items-center gap-1 text-xs bg-orange-900/30 text-orange-300 border border-orange-700/40 px-2 py-0.5 rounded-full">
-                {s === 'hackernews' ? 'Hacker News' : s}
+                {s === 'hackernews' ? 'Hacker News' : s === 'github' ? 'GitHub Trending' : s}
                 <button onClick={() => setSelectedSources((prev) => prev.filter((v) => v !== s))} className="hover:text-white leading-none">×</button>
               </span>
             ))}
@@ -770,22 +811,53 @@ export default function DiscoverPage() {
             <option value="newest">Más recientes</option>
           </select>
 
-          {/* Scraper HN */}
-          <button
-            onClick={runHNScraper}
-            disabled={scraping}
-            className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 hover:border-violet-600 rounded-lg px-3 py-1.5 text-sm text-zinc-300 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
-            title="Buscar nuevas startups en Hacker News"
-          >
-            {scraping ? (
-              <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
-            ) : (
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          {/* Dropdown scrapers */}
+          <div ref={scraperMenuRef} className="relative">
+            <button
+              onClick={() => setScraperMenuOpen((o) => !o)}
+              disabled={scrapingSource !== null}
+              className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 hover:border-violet-600 rounded-lg px-3 py-1.5 text-sm text-zinc-300 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+              title="Buscar nuevas startups"
+            >
+              {scrapingSource ? (
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
+              ) : (
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              )}
+              {scrapingSource ? 'Buscando...' : 'Buscar startups'}
+              <svg
+                className={`w-3 h-3 text-zinc-500 transition-transform ${scraperMenuOpen ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
+            </button>
+            {scraperMenuOpen && (
+              <div className="absolute top-full right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-2xl z-30 w-52 py-1">
+                <button
+                  onClick={() => runScraper('hn')}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors text-left"
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="16" height="16" rx="2" fill="#f60" />
+                    <text x="4" y="12" fontSize="10" fontWeight="bold" fill="white" fontFamily="Arial,sans-serif">Y</text>
+                  </svg>
+                  Hacker News
+                </button>
+                <button
+                  onClick={() => runScraper('github')}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors text-left"
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0 fill-current" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                  </svg>
+                  GitHub Trending
+                </button>
+              </div>
             )}
-            {scraping ? 'Buscando...' : 'Buscar en HN'}
-          </button>
+          </div>
 
           {/* Toggle grid/lista */}
           <div className="flex bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden">
