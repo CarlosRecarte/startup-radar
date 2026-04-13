@@ -70,6 +70,40 @@ export interface Database {
           }
         ];
       };
+      ai_analyses: {
+        Row: {
+          id: string;
+          startup_id: string;
+          analysis_text: string;
+          model_used: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          startup_id: string;
+          analysis_text: string;
+          model_used?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          startup_id?: string;
+          analysis_text?: string;
+          model_used?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'ai_analyses_startup_id_fkey';
+            columns: ['startup_id'];
+            isOneToOne: true;
+            referencedRelation: 'startups';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
       scores_history: {
         Row: {
           id: string;

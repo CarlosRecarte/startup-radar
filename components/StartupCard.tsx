@@ -44,7 +44,7 @@ export default function StartupCard({ startup, compact = false, hasSavedAnalysis
         </div>
         <div className="flex items-start gap-1 shrink-0">
           {hasSavedAnalysis && (
-            <svg className="w-3 h-3 text-amber-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" title="Análisis guardado">
+            <svg className="w-3 h-3 text-amber-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-label="Análisis guardado">
               <path d="M6 4a2 2 0 012-2h8a2 2 0 012 2v16l-6-3-6 3V4z" />
             </svg>
           )}
