@@ -1,13 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Startup } from '@/types';
+import { getAnalysis, saveAnalysis } from '@/lib/api/analyses';
+import type { SavedAnalysis } from '@/lib/api/analyses';
+
+const ANALYSIS_MODEL = 'claude-sonnet-4-5';
 
 interface AIAnalysisProps {
   startup: Startup;
+  onSaved?: (startupId: string) => void;
 }
 
-// ─── Icono ────────────────────────────────────────────────────────────────────
+// ─── Iconos ───────────────────────────────────────────────────────────────────
 
 function AIIcon({ className = 'w-4 h-4' }: { className?: string }) {
   return (
@@ -19,9 +24,25 @@ function AIIcon({ className = 'w-4 h-4' }: { className?: string }) {
   );
 }
 
+function BookmarkFilledIcon({ className = 'w-3.5 h-3.5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 4a2 2 0 012-2h8a2 2 0 012 2v16l-6-3-6 3V4z" />
+    </svg>
+  );
+}
+
+function BookmarkEmptyIcon({ className = 'w-3.5 h-3.5' }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+    </svg>
+  );
+}
+
 // ─── Renderizado de texto ─────────────────────────────────────────────────────
 
-/** Reemplaza **texto** por <strong> */
 function renderInline(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   if (parts.length === 1) return text;
@@ -42,7 +63,6 @@ const VEREDICTO_STYLES = {
   DESCARTAR: 'bg-red-950/50     border-red-600/50     text-red-300',
 } as const;
 
-/** Renderiza el texto del análisis con estilos visuales */
 function AnalysisText({ text }: { text: string }) {
   const lines = text.split('\n');
 
@@ -51,10 +71,8 @@ function AnalysisText({ text }: { text: string }) {
       {lines.map((line, i) => {
         const trimmed = line.trim();
 
-        // Línea vacía → separador
         if (!trimmed) return <div key={i} className="h-1.5" />;
 
-        // Sección headers: **TEXTO** o **TEXTO:**
         if (/^\*\*[^*]+\*\*:?\s*$/.test(trimmed)) {
           const label = trimmed.replace(/^\*\*/, '').replace(/\*\*:?\s*$/, '');
           return (
@@ -64,7 +82,6 @@ function AnalysisText({ text }: { text: string }) {
           );
         }
 
-        // Headers Markdown: ## Texto
         if (/^#{1,3}\s/.test(trimmed)) {
           const label = trimmed.replace(/^#{1,3}\s/, '');
           return (
@@ -74,7 +91,6 @@ function AnalysisText({ text }: { text: string }) {
           );
         }
 
-        // Veredicto standalone: INVERTIR / OBSERVAR / DESCARTAR
         const vMatch = trimmed.match(/^(INVERTIR|OBSERVAR|DESCARTAR)\s*$/);
         if (vMatch) {
           const v = vMatch[1] as keyof typeof VEREDICTO_STYLES;
@@ -85,7 +101,6 @@ function AnalysisText({ text }: { text: string }) {
           );
         }
 
-        // Bullet points: - texto o • texto
         if (/^[-•]\s/.test(trimmed)) {
           const content = trimmed.replace(/^[-•]\s/, '');
           return (
@@ -96,7 +111,6 @@ function AnalysisText({ text }: { text: string }) {
           );
         }
 
-        // Numbered items: 1. texto
         const numMatch = trimmed.match(/^(\d+)\.\s(.+)/);
         if (numMatch) {
           return (
@@ -107,7 +121,6 @@ function AnalysisText({ text }: { text: string }) {
           );
         }
 
-        // Texto normal
         return (
           <p key={i} className="text-xs text-zinc-300 leading-relaxed">
             {renderInline(trimmed)}
@@ -120,14 +133,53 @@ function AnalysisText({ text }: { text: string }) {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function AIAnalysis({ startup }: AIAnalysisProps) {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
-  const [text, setText]     = useState<string | null>(null);
-  const [error, setError]   = useState<string | null>(null);
+export default function AIAnalysis({ startup, onSaved }: AIAnalysisProps) {
+  const [loadState, setLoadState]       = useState<'checking' | 'ready'>('checking');
+  const [status, setStatus]             = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [text, setText]                 = useState<string | null>(null);
+  const [error, setError]               = useState<string | null>(null);
+  const [savedAnalysis, setSavedAnalysis] = useState<SavedAnalysis | null>(null);
+  const [isFromSaved, setIsFromSaved]   = useState(false);
+  const [saveState, setSaveState]       = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
+  const [saveToast, setSaveToast]       = useState<{ type: 'saved' | 'overwritten' } | null>(null);
+
+  // Comprueba si hay análisis guardado al abrir el panel o cambiar de startup
+  useEffect(() => {
+    let cancelled = false;
+
+    setLoadState('checking');
+    setStatus('idle');
+    setText(null);
+    setError(null);
+    setSavedAnalysis(null);
+    setIsFromSaved(false);
+    setSaveState('idle');
+    setSaveToast(null);
+
+    getAnalysis(startup.id)
+      .then((analysis) => {
+        if (cancelled) return;
+        if (analysis) {
+          setSavedAnalysis(analysis);
+          setText(analysis.analysis_text);
+          setStatus('done');
+          setIsFromSaved(true);
+        }
+      })
+      .catch(() => {
+        // fallo silencioso — muestra el botón de generar
+      })
+      .finally(() => {
+        if (!cancelled) setLoadState('ready');
+      });
+
+    return () => { cancelled = true; };
+  }, [startup.id]);
 
   const analyze = async () => {
     setStatus('loading');
     setError(null);
+    setIsFromSaved(false);
 
     try {
       const res = await fetch('/api/analyze', {
@@ -136,7 +188,6 @@ export default function AIAnalysis({ startup }: AIAnalysisProps) {
         body: JSON.stringify(startup),
       });
 
-      // Vercel puede devolver HTML en errores 502/504 — capturamos el JSON parse
       let data: { text?: string; error?: string };
       try {
         data = await res.json();
@@ -144,13 +195,8 @@ export default function AIAnalysis({ startup }: AIAnalysisProps) {
         throw new Error(`Error HTTP ${res.status} (${res.statusText}) — respuesta no válida del servidor.`);
       }
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error ?? `Error HTTP ${res.status}`);
-      }
-
-      if (!data.text) {
-        throw new Error('La respuesta del servidor no contiene texto.');
-      }
+      if (!res.ok || data.error) throw new Error(data.error ?? `Error HTTP ${res.status}`);
+      if (!data.text) throw new Error('La respuesta del servidor no contiene texto.');
 
       setText(data.text);
       setStatus('done');
@@ -159,6 +205,34 @@ export default function AIAnalysis({ startup }: AIAnalysisProps) {
       setStatus('error');
     }
   };
+
+  const handleSave = async () => {
+    if (!text || saveState === 'saving') return;
+    const wasAlreadySaved = savedAnalysis !== null;
+    setSaveState('saving');
+
+    try {
+      const result = await saveAnalysis(startup.id, text, ANALYSIS_MODEL);
+      setSavedAnalysis(result);
+      setSaveState('done');
+      setSaveToast({ type: wasAlreadySaved ? 'overwritten' : 'saved' });
+      setTimeout(() => setSaveToast(null), 3000);
+      onSaved?.(startup.id);
+    } catch {
+      setSaveState('error');
+      setTimeout(() => setSaveState('idle'), 2000);
+    }
+  };
+
+  // ── Comprobando BD ─────────────────────────────────────────────────────────
+
+  if (loadState === 'checking') {
+    return (
+      <div className="flex items-center justify-center py-5">
+        <div className="w-5 h-5 rounded-full border-2 border-violet-500/40 border-t-violet-500 animate-spin" />
+      </div>
+    );
+  }
 
   // ── Idle ──────────────────────────────────────────────────────────────────
 
@@ -169,7 +243,7 @@ export default function AIAnalysis({ startup }: AIAnalysisProps) {
         className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-violet-900/30"
       >
         <AIIcon />
-        Analizar con IA
+        Generar análisis
       </button>
     );
   }
@@ -218,27 +292,74 @@ export default function AIAnalysis({ startup }: AIAnalysisProps) {
 
   if (!text) return null;
 
+  const isSaved = savedAnalysis !== null;
+  const savedDate = savedAnalysis
+    ? new Date(savedAnalysis.updated_at).toLocaleDateString('es-ES', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      })
+    : null;
+
   return (
     <div className="rounded-xl border border-violet-700/30 bg-violet-950/10 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-violet-800/30 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <AIIcon className="w-4 h-4 text-violet-400" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-violet-300">
+      <div className="px-4 py-3 border-b border-violet-800/30 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+          <AIIcon className="w-4 h-4 text-violet-400 shrink-0" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-violet-300 shrink-0">
             Análisis IA
           </span>
+          {isFromSaved && savedDate && (
+            <span className="text-[10px] text-zinc-500 truncate">· guardado el {savedDate}</span>
+          )}
         </div>
-        <button
-          onClick={analyze}
-          className="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-violet-300 transition-colors"
-        >
-          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Re-analizar
-        </button>
+
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Bookmark */}
+          <button
+            onClick={handleSave}
+            disabled={saveState === 'saving'}
+            title={isSaved ? 'Sobrescribir análisis guardado' : 'Guardar análisis'}
+            className="flex items-center gap-1 text-[10px] disabled:opacity-50 transition-colors group"
+          >
+            {saveState === 'saving' ? (
+              <div className="w-3 h-3 rounded-full border border-violet-400 border-t-transparent animate-spin" />
+            ) : isSaved ? (
+              <BookmarkFilledIcon className="w-3.5 h-3.5 text-amber-400 group-hover:text-amber-300 transition-colors" />
+            ) : (
+              <BookmarkEmptyIcon className="w-3.5 h-3.5 text-zinc-400 group-hover:text-amber-400 transition-colors" />
+            )}
+            <span className={`transition-colors ${isSaved ? 'text-amber-400 group-hover:text-amber-300' : 'text-zinc-500 group-hover:text-amber-400'}`}>
+              {isSaved ? 'Guardado' : 'Guardar'}
+            </span>
+          </button>
+
+          {/* Re-analizar */}
+          <button
+            onClick={analyze}
+            className="flex items-center gap-1 text-[10px] text-zinc-500 hover:text-violet-300 transition-colors"
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Re-analizar
+          </button>
+        </div>
       </div>
+
+      {/* Toast de guardado */}
+      {saveToast && (
+        <div className={`px-4 py-2 text-[11px] font-medium flex items-center gap-1.5 border-b ${
+          saveToast.type === 'saved'
+            ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/30'
+            : 'bg-blue-950/40 text-blue-300 border-blue-800/30'
+        }`}>
+          <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {saveToast.type === 'saved' ? 'Análisis guardado' : 'Análisis sobrescrito'}
+        </div>
+      )}
 
       <div className="px-4 py-4">
         <AnalysisText text={text} />

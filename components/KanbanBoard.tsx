@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -35,6 +35,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Startup, PipelineStage } from '@/types';
 import { PIPELINE_STAGES } from '@/data/startups';
 import { updateStartupPhase, updateStartupNotes, addStartup } from '@/lib/api/startups';
+import { getAnalysedStartupIds } from '@/lib/api/analyses';
 import StartupCard from './StartupCard';
 import StartupDetailModal from './StartupDetailModal';
 import AddStartupModal from './AddStartupModal';
@@ -66,9 +67,11 @@ const columnHeaderColors: Record<PipelineStage, string> = {
 function SortableCard({
   startup,
   onClick,
+  hasSavedAnalysis,
 }: {
   startup: Startup;
   onClick: (startup: Startup) => void;
+  hasSavedAnalysis?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: startup.id,
@@ -88,7 +91,7 @@ function SortableCard({
       {...listeners}
       onClick={() => onClick(startup)}
     >
-      <StartupCard startup={startup} compact />
+      <StartupCard startup={startup} compact hasSavedAnalysis={hasSavedAnalysis} />
     </div>
   );
 }
@@ -99,10 +102,12 @@ function KanbanColumn({
   stage,
   startups,
   onCardClick,
+  savedAnalysisIds,
 }: {
   stage: PipelineStage;
   startups: Startup[];
   onCardClick: (startup: Startup) => void;
+  savedAnalysisIds: Set<string>;
 }) {
   // Registra la columna como droppable con el nombre de la fase como ID.
   // Esto permite soltar sobre columnas vacías (sin tarjetas sortables).
@@ -132,7 +137,7 @@ function KanbanColumn({
           strategy={verticalListSortingStrategy}
         >
           {startups.map((startup) => (
-            <SortableCard key={startup.id} startup={startup} onClick={onCardClick} />
+            <SortableCard key={startup.id} startup={startup} onClick={onCardClick} hasSavedAnalysis={savedAnalysisIds.has(startup.id)} />
           ))}
         </SortableContext>
         {startups.length === 0 && (
@@ -163,6 +168,12 @@ export default function KanbanBoard({ initialStartups }: KanbanBoardProps) {
   const [selectedStartup, setSelectedStartup] = useState<Startup | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [savedAnalysisIds, setSavedAnalysisIds] = useState<Set<string>>(new Set());
+
+  // Carga IDs de startups con análisis guardado
+  useEffect(() => {
+    getAnalysedStartupIds().then(setSavedAnalysisIds).catch(() => {});
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -302,6 +313,7 @@ export default function KanbanBoard({ initialStartups }: KanbanBoardProps) {
               stage={stage}
               startups={getByStage(stage)}
               onCardClick={setSelectedStartup}
+              savedAnalysisIds={savedAnalysisIds}
             />
           ))}
         </div>

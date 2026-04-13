@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { getFilteredStartups, updateStartupPhase } from '@/lib/api/startups';
+import { getAnalysedStartupIds } from '@/lib/api/analyses';
 import RadarScoreRing from '@/components/RadarScoreRing';
 import RadarScoreBreakdown from '@/components/RadarScoreBreakdown';
 import AIAnalysis from '@/components/AIAnalysis';
@@ -241,7 +242,7 @@ function SkeletonCard() {
 
 // ─── StartupDiscoverCard ──────────────────────────────────────────────────────
 
-function StartupDiscoverCard({ startup, onClick }: { startup: Startup; onClick: () => void }) {
+function StartupDiscoverCard({ startup, onClick, hasSavedAnalysis = false }: { startup: Startup; onClick: () => void; hasSavedAnalysis?: boolean }) {
   const ss    = sectorStyle(startup.sector);
   const sc    = STAGE_COLORS[startup.stage] ?? 'bg-zinc-700/60 text-zinc-300 border-zinc-600/40';
   const isPos = startup.growth?.startsWith('+');
@@ -261,7 +262,14 @@ function StartupDiscoverCard({ startup, onClick }: { startup: Startup; onClick: 
             {startup.sector}
           </span>
         </div>
-        <RadarScoreRing score={startup.radarScore} size={40} />
+        <div className="flex items-start gap-1 shrink-0">
+          {hasSavedAnalysis && (
+            <svg className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" title="Análisis guardado">
+              <path d="M6 4a2 2 0 012-2h8a2 2 0 012 2v16l-6-3-6 3V4z" />
+            </svg>
+          )}
+          <RadarScoreRing score={startup.radarScore} size={40} />
+        </div>
       </div>
 
       {/* Descripción */}
@@ -350,10 +358,12 @@ function SlideOverContent({
   startup,
   onClose,
   onAddToPipeline,
+  onAnalysisSaved,
 }: {
   startup: Startup;
   onClose: () => void;
   onAddToPipeline: (s: Startup) => Promise<void>;
+  onAnalysisSaved?: (startupId: string) => void;
 }) {
   const [adding, setAdding]   = useState(false);
   const [added, setAdded]     = useState(false);
@@ -526,7 +536,7 @@ function SlideOverContent({
           >
             {adding ? 'Añadiendo...' : added ? '✓ Añadido al Pipeline' : 'Añadir al Pipeline'}
           </button>
-          <AIAnalysis startup={startup} />
+          <AIAnalysis startup={startup} onSaved={onAnalysisSaved} />
         </div>
       </div>
     </>
@@ -540,6 +550,7 @@ export default function DiscoverPage() {
   const [loading, setLoading]               = useState(true);
   const [fetchError, setFetchError]         = useState<string | null>(null);
   const [selectedStartup, setSelectedStartup] = useState<Startup | null>(null);
+  const [savedAnalysisIds, setSavedAnalysisIds] = useState<Set<string>>(new Set());
 
   // Filtros
   const [search, setSearch]               = useState('');
@@ -569,6 +580,11 @@ export default function DiscoverPage() {
       .then(setAllStartups)
       .catch((e: Error) => setFetchError(e.message))
       .finally(() => setLoading(false));
+  }, []);
+
+  // Carga IDs de startups con análisis guardado
+  useEffect(() => {
+    getAnalysedStartupIds().then(setSavedAnalysisIds).catch(() => {});
   }, []);
 
   // Bloquear scroll del body con el panel abierto
@@ -974,7 +990,7 @@ export default function DiscoverPage() {
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((s) => (
-            <StartupDiscoverCard key={s.id} startup={s} onClick={() => setSelectedStartup(s)} />
+            <StartupDiscoverCard key={s.id} startup={s} onClick={() => setSelectedStartup(s)} hasSavedAnalysis={savedAnalysisIds.has(s.id)} />
           ))}
         </div>
       ) : (
@@ -1004,6 +1020,7 @@ export default function DiscoverPage() {
             startup={selectedStartup}
             onClose={() => setSelectedStartup(null)}
             onAddToPipeline={handleAddToPipeline}
+            onAnalysisSaved={(id) => setSavedAnalysisIds((prev) => new Set([...prev, id]))}
           />
         )}
       </div>

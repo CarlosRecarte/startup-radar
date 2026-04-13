@@ -4,6 +4,7 @@ import RadarScoreRing from './RadarScoreRing';
 interface StartupCardProps {
   startup: Startup;
   compact?: boolean;
+  hasSavedAnalysis?: boolean;
 }
 
 const stageBadgeColors: Record<string, string> = {
@@ -27,7 +28,7 @@ const sectorColors: Record<string, string> = {
   'RetailTech': 'text-amber-400',
 };
 
-export default function StartupCard({ startup, compact = false }: StartupCardProps) {
+export default function StartupCard({ startup, compact = false, hasSavedAnalysis = false }: StartupCardProps) {
   const sectorColor = sectorColors[startup.sector] ?? 'text-gray-400';
   const stageBadge = stageBadgeColors[startup.stage] ?? 'bg-zinc-700 text-zinc-300';
 
@@ -41,7 +42,14 @@ export default function StartupCard({ startup, compact = false }: StartupCardPro
           </h3>
           <span className={`text-xs font-medium ${sectorColor}`}>{startup.sector}</span>
         </div>
-        <RadarScoreRing score={startup.radarScore} size={compact ? 32 : 40} />
+        <div className="flex items-start gap-1 shrink-0">
+          {hasSavedAnalysis && (
+            <svg className="w-3 h-3 text-amber-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" title="Análisis guardado">
+              <path d="M6 4a2 2 0 012-2h8a2 2 0 012 2v16l-6-3-6 3V4z" />
+            </svg>
+          )}
+          <RadarScoreRing score={startup.radarScore} size={compact ? 32 : 40} />
+        </div>
       </div>
 
       {/* Description */}
