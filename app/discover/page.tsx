@@ -89,6 +89,33 @@ function SourceBadge({ source, sourceUrl }: { source?: string; sourceUrl?: strin
     return badge;
   }
 
+  if (source === 'producthunt') {
+    const badge = (
+      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-orange-900/40 text-orange-300 border border-orange-700/50 shrink-0 font-medium">
+        {/* Icono PH */}
+        <svg className="w-2.5 h-2.5 shrink-0" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect width="16" height="16" rx="8" fill="#da552f" />
+          <text x="4.5" y="12" fontSize="9" fontWeight="bold" fill="white" fontFamily="Arial,sans-serif">P</text>
+        </svg>
+        PH
+      </span>
+    );
+    if (sourceUrl) {
+      return (
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Ver en Product Hunt"
+        >
+          {badge}
+        </a>
+      );
+    }
+    return badge;
+  }
+
   if (source === 'github') {
     const badge = (
       <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-zinc-900 text-zinc-200 border border-zinc-600 shrink-0 font-medium">
@@ -524,7 +551,7 @@ export default function DiscoverPage() {
   const [viewMode, setViewMode]           = useState<ViewMode>('grid');
 
   // Scrapers
-  const [scrapingSource, setScrapingSource]   = useState<'hn' | 'github' | null>(null);
+  const [scrapingSource, setScrapingSource]   = useState<'hn' | 'producthunt' | 'github' | null>(null);
   const [scrapeToast, setScrapeToast]         = useState<{ type: 'success' | 'info'; msg: string } | null>(null);
   const [scraperMenuOpen, setScraperMenuOpen] = useState(false);
   const scraperMenuRef = useRef<HTMLDivElement>(null);
@@ -609,12 +636,18 @@ export default function DiscoverPage() {
     return () => document.removeEventListener('mousedown', handler);
   }, [scraperMenuOpen]);
 
-  const runScraper = async (source: 'hn' | 'github') => {
+  const runScraper = async (source: 'hn' | 'producthunt' | 'github') => {
     setScrapingSource(source);
     setScraperMenuOpen(false);
     setScrapeToast(null);
-    const endpoint   = source === 'hn' ? '/api/scrapers/hackernews' : '/api/scrapers/github';
-    const sourceName = source === 'hn' ? 'HN' : 'GitHub Trending';
+    const endpoint =
+      source === 'hn' ? '/api/scrapers/hackernews' :
+      source === 'producthunt' ? '/api/scrapers/producthunt' :
+      '/api/scrapers/github';
+    const sourceName =
+      source === 'hn' ? 'HN' :
+      source === 'producthunt' ? 'Product Hunt' :
+      'GitHub Trending';
     try {
       const res = await fetch(endpoint, { method: 'POST' });
       const data = await res.json() as {
@@ -697,7 +730,7 @@ export default function DiscoverPage() {
             placeholder="Stage"
           />
           <MultiSelectDropdown
-            options={['manual', 'hackernews', 'github']}
+            options={['manual', 'hackernews', 'producthunt', 'github']}
             selected={selectedSources}
             onChange={setSelectedSources}
             placeholder="Origen"
@@ -755,7 +788,7 @@ export default function DiscoverPage() {
             ))}
             {selectedSources.map((s) => (
               <span key={s} className="flex items-center gap-1 text-xs bg-orange-900/30 text-orange-300 border border-orange-700/40 px-2 py-0.5 rounded-full">
-                {s === 'hackernews' ? 'Hacker News' : s === 'github' ? 'GitHub Trending' : s}
+                {s === 'hackernews' ? 'Hacker News' : s === 'producthunt' ? 'Product Hunt' : s === 'github' ? 'GitHub Trending' : s}
                 <button onClick={() => setSelectedSources((prev) => prev.filter((v) => v !== s))} className="hover:text-white leading-none">×</button>
               </span>
             ))}
@@ -845,6 +878,16 @@ export default function DiscoverPage() {
                     <text x="4" y="12" fontSize="10" fontWeight="bold" fill="white" fontFamily="Arial,sans-serif">Y</text>
                   </svg>
                   Hacker News
+                </button>
+                <button
+                  onClick={() => runScraper('producthunt')}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors text-left"
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="16" height="16" rx="8" fill="#da552f" />
+                    <text x="4.5" y="12" fontSize="9" fontWeight="bold" fill="white" fontFamily="Arial,sans-serif">P</text>
+                  </svg>
+                  Product Hunt
                 </button>
                 <button
                   onClick={() => runScraper('github')}
