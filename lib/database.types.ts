@@ -70,6 +70,34 @@ export interface Database {
           }
         ];
       };
+      scraper_runs: {
+        Row: {
+          id: string;
+          source: string;
+          started_at: string;
+          finished_at: string | null;
+          status: string;
+          processed: number | null;
+          startups_found: number | null;
+          new_startups: number | null;
+          errors: string[] | null;
+          elapsed_seconds: number | null;
+        };
+        Insert: {
+          id?: string;
+          source: string;
+          started_at?: string;
+          finished_at?: string | null;
+          status?: string;
+          processed?: number | null;
+          startups_found?: number | null;
+          new_startups?: number | null;
+          errors?: string[] | null;
+          elapsed_seconds?: number | null;
+        };
+        Update: Partial<Database['public']['Tables']['scraper_runs']['Insert']>;
+        Relationships: [];
+      };
       ai_analyses: {
         Row: {
           id: string;

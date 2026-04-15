@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { addStartup } from '@/lib/api/startups';
 import { supabase } from '@/lib/supabase';
+import { insertScraperRun } from '@/lib/api/scraperRuns';
 
 // Vercel: hasta 5 minutos para el scraper
 export const maxDuration = 300;
@@ -136,7 +137,8 @@ Responde ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
 }
 
 export async function POST() {
-  const startTime = Date.now();
+  const startTime  = Date.now();
+  const startedAt  = new Date().toISOString();
   const errors: string[] = [];
   let startupsFound = 0;
   let newStartups   = 0;
@@ -161,6 +163,7 @@ export async function POST() {
     console.log(`[github-scraper] Fetched ${repos.length} repos (total: ${data.total_count})`);
   } catch (e) {
     console.error('[github-scraper] Failed to fetch repos:', e);
+    await insertScraperRun({ source: 'github', started_at: startedAt, finished_at: new Date().toISOString(), status: 'error', processed: 0, startups_found: 0, new_startups: 0, errors: [String(e)], elapsed_seconds: 0 });
     return NextResponse.json({ error: 'No se pudo conectar con la API de GitHub.' }, { status: 502 });
   }
 
@@ -245,6 +248,18 @@ export async function POST() {
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(`[github-scraper] DONE — candidates: ${candidates.length}, found: ${startupsFound}, new: ${newStartups}, errors: ${errors.length}, time: ${elapsed}s`);
+
+  await insertScraperRun({
+    source:         'github',
+    started_at:     startedAt,
+    finished_at:    new Date().toISOString(),
+    status:         errors.length > 0 && newStartups === 0 ? 'error' : 'success',
+    processed:      candidates.length,
+    startups_found: startupsFound,
+    new_startups:   newStartups,
+    errors,
+    elapsed_seconds: Number(elapsed),
+  });
 
   return NextResponse.json({
     processed:       candidates.length,

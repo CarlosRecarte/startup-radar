@@ -561,12 +561,6 @@ export default function DiscoverPage() {
   const [sortBy, setSortBy]               = useState<SortOption>('radarScore');
   const [viewMode, setViewMode]           = useState<ViewMode>('grid');
 
-  // Scrapers
-  const [scrapingSource, setScrapingSource]   = useState<'hn' | 'producthunt' | 'github' | null>(null);
-  const [scrapeToast, setScrapeToast]         = useState<{ type: 'success' | 'info'; msg: string } | null>(null);
-  const [scraperMenuOpen, setScraperMenuOpen] = useState(false);
-  const scraperMenuRef = useRef<HTMLDivElement>(null);
-
   // Sectores derivados de los datos cargados
   const availableSectors = useMemo(
     () => Array.from(new Set(allStartups.map((s) => s.sector))).sort(),
@@ -641,59 +635,6 @@ export default function DiscoverPage() {
     await updateStartupPhase(startup.id, 'Discovery');
   };
 
-  // Cierra el menú de scrapers al hacer clic fuera
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (scraperMenuRef.current && !scraperMenuRef.current.contains(e.target as Node)) {
-        setScraperMenuOpen(false);
-      }
-    }
-    if (scraperMenuOpen) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [scraperMenuOpen]);
-
-  const runScraper = async (source: 'hn' | 'producthunt' | 'github') => {
-    setScrapingSource(source);
-    setScraperMenuOpen(false);
-    setScrapeToast(null);
-    const endpoint =
-      source === 'hn' ? '/api/scrapers/hackernews' :
-      source === 'producthunt' ? '/api/scrapers/producthunt' :
-      '/api/scrapers/github';
-    const sourceName =
-      source === 'hn' ? 'HN' :
-      source === 'producthunt' ? 'Product Hunt' :
-      'GitHub Trending';
-    try {
-      const res = await fetch(endpoint, { method: 'POST' });
-      const data = await res.json() as {
-        processed?: number;
-        startups_found?: number;
-        new_startups?: number;
-        errors?: string[];
-        error?: string;
-      };
-
-      if (!res.ok || data.error) {
-        setScrapeToast({ type: 'info', msg: data.error ?? `Error ${res.status}` });
-        return;
-      }
-
-      const n = data.new_startups ?? 0;
-      if (n > 0) {
-        setScrapeToast({ type: 'success', msg: `${n} nueva${n > 1 ? 's' : ''} startup${n > 1 ? 's' : ''} añadida${n > 1 ? 's' : ''} desde ${sourceName}` });
-        const fresh = await getFilteredStartups({});
-        setAllStartups(fresh);
-      } else {
-        setScrapeToast({ type: 'info', msg: `Sin novedades — ${data.startups_found ?? 0} startups analizadas, ninguna es nueva` });
-      }
-    } catch (e) {
-      setScrapeToast({ type: 'info', msg: e instanceof Error ? e.message : 'Error inesperado' });
-    } finally {
-      setScrapingSource(null);
-      setTimeout(() => setScrapeToast(null), 6000);
-    }
-  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -818,31 +759,6 @@ export default function DiscoverPage() {
         )}
       </div>
 
-      {/* Toast del scraper */}
-      {scrapeToast && (
-        <div className={`mb-4 flex items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-all ${
-          scrapeToast.type === 'success'
-            ? 'bg-emerald-950/40 border-emerald-700/50 text-emerald-300'
-            : 'bg-amber-950/40 border-amber-700/50 text-amber-300'
-        }`}>
-          {scrapeToast.type === 'success' ? (
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          )}
-          <span>{scrapeToast.msg}</span>
-          <button onClick={() => setScrapeToast(null)} className="ml-auto text-current opacity-60 hover:opacity-100 transition-opacity">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      )}
-
       {/* Contador + ordenación + toggle vista */}
       <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
         <p className="text-sm text-zinc-400">
@@ -859,64 +775,6 @@ export default function DiscoverPage() {
             <option value="funding">Funding</option>
             <option value="newest">Más recientes</option>
           </select>
-
-          {/* Dropdown scrapers */}
-          <div ref={scraperMenuRef} className="relative">
-            <button
-              onClick={() => setScraperMenuOpen((o) => !o)}
-              disabled={scrapingSource !== null}
-              className="flex items-center gap-2 bg-zinc-800 border border-zinc-700 hover:border-violet-600 rounded-lg px-3 py-1.5 text-sm text-zinc-300 hover:text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
-              title="Buscar nuevas startups"
-            >
-              {scrapingSource ? (
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-violet-400 border-t-transparent animate-spin" />
-              ) : (
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              )}
-              {scrapingSource ? 'Buscando...' : 'Buscar startups'}
-              <svg
-                className={`w-3 h-3 text-zinc-500 transition-transform ${scraperMenuOpen ? 'rotate-180' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            {scraperMenuOpen && (
-              <div className="absolute top-full right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-2xl z-30 w-52 py-1">
-                <button
-                  onClick={() => runScraper('hn')}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors text-left"
-                >
-                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="16" height="16" rx="2" fill="#f60" />
-                    <text x="4" y="12" fontSize="10" fontWeight="bold" fill="white" fontFamily="Arial,sans-serif">Y</text>
-                  </svg>
-                  Hacker News
-                </button>
-                <button
-                  onClick={() => runScraper('producthunt')}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors text-left"
-                >
-                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="16" height="16" rx="8" fill="#da552f" />
-                    <text x="4.5" y="12" fontSize="9" fontWeight="bold" fill="white" fontFamily="Arial,sans-serif">P</text>
-                  </svg>
-                  Product Hunt
-                </button>
-                <button
-                  onClick={() => runScraper('github')}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors text-left"
-                >
-                  <svg className="w-3.5 h-3.5 shrink-0 fill-current" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-                  </svg>
-                  GitHub Trending
-                </button>
-              </div>
-            )}
-          </div>
 
           {/* Toggle grid/lista */}
           <div className="flex bg-zinc-800 border border-zinc-700 rounded-lg overflow-hidden">

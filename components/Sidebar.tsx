@@ -31,6 +31,15 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    href: '/sources',
+    label: 'Sources',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7c0-2 1-3 3-3h10c2 0 3 1 3 3M4 7h16M9 11h6M9 15h4" />
+      </svg>
+    ),
+  },
 ];
 
 export default function Sidebar() {
